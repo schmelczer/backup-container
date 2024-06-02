@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 SLEEP_TIME=${SLEEP_TIME:-1h}
 
 log_message() {
@@ -16,5 +15,7 @@ echo "Starting schedule script at `date`" | log_message
 while true; do
     exec /src/backup-wrapper.sh 2>&1 | log_message
     echo "Sleeping for $SLEEP_TIME" | log_message
+
+    # Using a simple sleep loop to schedule backups instead of cron to avoid concurrency issues
     sleep "$SLEEP_TIME"
 done
