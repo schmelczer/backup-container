@@ -1,5 +1,4 @@
 Host *
     StrictHostKeyChecking no
-    IdentityFile /id_rsa
     ServerAliveInterval 30
     ServerAliveCountMax 3

@@ -1,4 +1,9 @@
-source
-logs
+source  # this is a temporary directory we have to mount to allow snapshoting to
+logs  # this is a folder for the volume logs are written to
 .git
 .gitignore
+README.md
+id_rsa
+docker-compose.yml
+Dockerfile
+.dockerignore
