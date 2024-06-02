@@ -4,8 +4,8 @@ USER root
 
 RUN apk --no-cache add btrfs-progs openssh borgbackup bash coreutils
 
-COPY ssh_config /etc/ssh/
 COPY src /src
-COPY exclude.conf /exclude.conf
+COPY config/ssh_config /etc/ssh/
+COPY config/exclude.conf /exclude.conf
 
 ENTRYPOINT ["sh", "-c", "/src/schedule.sh"]
