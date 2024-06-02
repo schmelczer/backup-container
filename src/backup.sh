@@ -18,7 +18,9 @@ if [ $? -ne 0 ]; then
     borg init --encryption=repokey
 fi
 
-# the above command will fail if the repo hasn't been already initialized, so we can ignore the return status
+# The above command will fail if the repo hasn't been already initialized, 
+# so we can ignore the return status. However, if any of the commands below fail,
+# we want to stop the script immediately.
 set -e
 
 if [ -d "/snapshot/source" ]; then
@@ -28,7 +30,12 @@ fi
 btrfs subvolume snapshot /source /snapshot
 
 cd /snapshot/source
-borg create --stats --list --filter=AMCE --files-cache=ctime,size --compression=zstd,12 --exclude-from /exclude.conf ::"{hostname}-{now:%Y-%m-%dT%H:%M:%S}" .
+borg create --stats \
+    --list \
+    --filter=AMCE \
+    --files-cache=ctime,size,inode \
+    --compression=zstd,12 \
+    --exclude-from /exclude.conf ::"{hostname}-{now:%Y-%m-%dT%H:%M:%S}" .
 cd -
 
 borg prune --list --stats \

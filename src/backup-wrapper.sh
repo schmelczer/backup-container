@@ -37,7 +37,8 @@ configure_environment() {
 }
 
 main() {
-    if [ -n "$BORG_PASSPHRASE" ] && [ -n "$BORG_REPO" ]; then
+    if [ -n "$BORG_REPO" ]; then
+        # fallback case if multi-target backup isn't needed
         execute_script
     else
         local index=0
