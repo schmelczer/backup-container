@@ -4,15 +4,17 @@ echo "Starting backup wrapper script at `date`"
 
 execute_script() {
     echo "Executing script with:"
-    echo "BORG_PASSPHRASE=<redacted>"
+    if [ -n "$BORG_PASSPHRASE" ]; then
+        echo "BORG_PASSPHRASE=<redacted>"
+    fi
     echo "BORG_REMOTE_PATH='${BORG_REMOTE_PATH}'"
     echo "BORG_REPO='${BORG_REPO}'"
+
     /src/backup.sh
 }
 
 configure_environment() {
     local index=$1
-
     local all_vars_set=true
     # required variables
     for var in BORG_PASSPHRASE BORG_REPO; do
