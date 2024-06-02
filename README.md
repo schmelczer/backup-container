@@ -5,9 +5,8 @@ Create a snapshot of a [BTRFS](https://docs.kernel.org/filesystems/btrfs.html) v
 ## Quick start
 
 1. Review and modify the [docker-compose.yml](docker-compose.yml) file to set your environment variables as needed
-2. Update the password in the [.env](config/.env) file
-3. Customise the [exclude.conf](conifg/exclude.conf) according to your requirements
-4. Execute the command `docker compose --env-file ./config/default.env up` to spin up the container
+2. Customise the [exclude.conf](config/exclude.conf) according to your requirements
+3. Execute the command `docker compose --env-file ./config/default.env up` to spin up the container
 
 ## Background
 
