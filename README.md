@@ -1,4 +1,4 @@
-# My backup container
+# My backup container [![Docker](https://github.com/schmelczer/backup-container/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/schmelczer/backup-container/actions/workflows/docker-publish.yml)
 
 Create a snapshot of a [BTRFS](https://docs.kernel.org/filesystems/btrfs.html) volume from a [Docker container](https://www.docker.com/) and robustly back it up to multiple [BorgBackup](https://borgbackup.readthedocs.io/en/stable/index.html) repositories on a schedule.
 
