@@ -1,0 +1,39 @@
+services:
+  backup:
+    container_name: backup
+    init: true
+    tty: true
+    build:
+      context: .
+    environment:
+      - TZ=Europe/London
+      - SLEEP_TIME=1h # we will wait an hour between backups
+
+      # first backup goes to rsync.net
+      - BORG_PASSPHRASE_0=$PASSWORD
+      - BORG_REMOTE_PATH_0=borg1 # we must use this executable in the rsync.net host
+      - BORG_REPO_0=my-username@my-username.rsync.net:~/backup
+
+      # second backup goes to a local path
+      - BORG_PASSPHRASE_1=$PASSWORD
+      - BORG_REPO_1=/local-backup
+
+      - KEEP_DAILY=6 # the following are passed to `borg prune`
+      - KEEP_WEEKLY=3
+      - KEEP_MONTHLY=48
+      - KEEP_YEARLY=10
+    volumes:
+      - /volumes:/source:ro # we will backup this folder, we mustn't change it, so it's readonly
+      - /volumes/backup:/snapshot # we must mount a btrfs path for the snapshot to be put at, this is just a temporary path
+      - /volumes/backup/logs:/backup-logs # we will store the output of the backup commands in this folder
+      - borg-cache:/root/.cache/borg # speed up subsequent backups
+
+      - /bulk/backup:/local-backup # this is an example target backup path for BORG_REPO_1 from above
+      - /volumes/backup/id_rsa:/root/.ssh/id_rsa # this is an example for mounting an ssh key for a remote repo (BORG_REPO_0 above)
+
+    cap_add:
+      - SYS_ADMIN # we need this capability to snapshot a btrfs volume
+    restart: unless-stopped
+
+volumes:
+  borg-cache:
