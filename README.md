@@ -10,7 +10,7 @@ Create a snapshot of a [BTRFS](https://docs.kernel.org/filesystems/btrfs.html) v
 
 ## Background
 
-Over the past year, this backup setup has enabled me to successfully restore all my data after incidents. This is all thanks to the excellent backup tool called BorgBackup. The scripts in the this repository serve as an opinionated thin wrapper around it. The Docker image provided can be used directly in various self-hosting setups. It's designed to be a simple and effective tool for those looking to establish a reliable backup system, saving time and avoiding common pitfalls.
+Over the past year, this backup setup has enabled me to successfully restore all my data after incidents. This is all thanks to the excellent backup tool called BorgBackup. The scripts in this repository serve as an opinionated thin wrapper around it. The Docker image provided can be used directly in various self-hosting setups. It's designed to be a simple and effective tool for those looking to establish a reliable backup system, saving time and avoiding common pitfalls.
 
 ## Features
 
@@ -71,9 +71,12 @@ Thus, the following sets of environment variables are valid for multi-target bac
   - [backup.sh](src/backup.sh): Creates a new BorgBackup repository if none exists, takes a snapshot of the BTRFS volume, performs the backup, and prunes old backups.
   - [backup-wrapper.sh](src/backup-wrapper.sh): Executes backup.sh for each repository configured via environment variables.
   - [schedule.sh](src/schedule.sh): Manages and logs the operation of backup-wrapper.sh and runs it in a continuous loop.
+- config
+  - [exclude.conf](config/exclude.conf): Exclude list for `borg`. Files matching these patterns won't be backed up.
+  - [ssh_config](config/ssh_config): SSH config for improving remote backup robustness.
 
 ## Related resources
 
 - Learn how to install Debian with BTRFS in this helpful [video tutorial](https://www.youtube.com/watch?v=MoWApyUb5w8). Note that a BTRFS disk can also be created post-installation.
-- rsync.net offers a special discount for BorgBackup users: [BorgBackup at rsync.net](https://www.rsync.net/products/borg.html).
+- [rsync.net](https://www.rsync.net/products/borg.html) offers a special discount for BorgBackup users: [BorgBackup at rsync.net](https://www.rsync.net/products/borg.html).
 - Explore detailed BorgBackup documentation and demos: [BorgBackup Documentation](https://www.borgbackup.org/demo.html), including a comprehensive guide on [`borg create`](https://borgbackup.readthedocs.io/en/stable/usage/create.html#description).
