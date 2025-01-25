@@ -80,3 +80,13 @@ Thus, the following sets of environment variables are valid for multi-target bac
 - Learn how to install Debian with BTRFS in this helpful [video tutorial](https://www.youtube.com/watch?v=MoWApyUb5w8). Note that a BTRFS disk can also be created post-installation.
 - [rsync.net](https://www.rsync.net/products/borg.html) offers a special discount for BorgBackup users: [BorgBackup at rsync.net](https://www.rsync.net/products/borg.html).
 - Explore detailed BorgBackup documentation and demos: [BorgBackup Documentation](https://www.borgbackup.org/demo.html), including a comprehensive guide on [`borg create`](https://borgbackup.readthedocs.io/en/stable/usage/create.html#description).
+
+## Development
+
+Create a new tag:
+
+```sh
+export TAG=vX.X.X
+git tag -a $TAG -m "Release $TAG"
+git push origin $TAG
+```
