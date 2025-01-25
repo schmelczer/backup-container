@@ -1,9 +1,14 @@
-FROM alpine:3.20.0
+FROM alpine:3.21.2
 
 # this is the default, but just to be explicit
 USER root
 
-RUN apk --no-cache add btrfs-progs openssh borgbackup bash coreutils
+RUN apk --no-cache add \
+    btrfs-progs \
+    openssh \
+    bash \
+    coreutils \
+    borgbackup=1.4.0-r0
 
 COPY src /src
 COPY config/ssh_config /etc/ssh/
