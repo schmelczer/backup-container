@@ -21,7 +21,10 @@ services:
       - KEEP_DAILY=6 # default: 6
       - KEEP_WEEKLY=3 # default: 3
       - KEEP_MONTHLY=48 # default: 48
-      - KEEP_YEARLY=10 # default: 0 (!)
+      - KEEP_YEARLY=10 # default: 10
+
+      # Used for determining the health of the container
+      - MAX_BACKUP_AGE_SECONDS=86400 # default: 86400 (1d)
     volumes:
       - /volumes:/source:ro # we backup this folder (which is a BTRFS volume), we mustn't change it, so it's readonly
       - /volumes/backup:/snapshot # we must mount a path to a folder on the BTRFS disk for the snapshot to be put at, this is just a temporary path

@@ -3,7 +3,7 @@
 KEEP_DAILY=${KEEP_DAILY:-6}
 KEEP_WEEKLY=${KEEP_WEEKLY:-3}
 KEEP_MONTHLY=${KEEP_MONTHLY:-48}
-KEEP_YEARLY=${KEEP_YEARLY:-0}
+KEEP_YEARLY=${KEEP_YEARLY:-10}
 
 echo "Starting backup script at `date`"
 
@@ -49,3 +49,4 @@ borg compact --threshold=5 --cleanup-commits --verbose --progress
 btrfs subvolume delete /snapshot/source
 
 echo "Finished backup script at `date`"
+date > /backup_completion_time.log # this used by the healtcheck

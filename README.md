@@ -10,7 +10,7 @@ Create a snapshot of a [BTRFS](https://docs.kernel.org/filesystems/btrfs.html) v
 
 ## Background
 
-Over the past year, this backup setup has enabled me to successfully restore all my data after incidents. This is all thanks to the excellent backup tool called BorgBackup. The scripts in this repository serve as an opinionated thin wrapper around it. The Docker image provided can be used directly in various self-hosting setups. It's designed to be a simple and effective tool for those looking to establish a reliable backup system, saving time and avoiding common pitfalls.
+Over the past 2 years, this backup setup has enabled me to successfully restore all my data after incidents. This is all thanks to the excellent backup tool called BorgBackup. The scripts in this repository serve as an opinionated thin wrapper around it. The Docker image provided can be used directly in various self-hosting setups. It's designed to be a simple and effective tool for those looking to establish a reliable backup system, saving time and avoiding common pitfalls.
 
 ## Features
 
@@ -19,6 +19,7 @@ Over the past year, this backup setup has enabled me to successfully restore all
 - **Scheduled Backups**: Automates backups according to a defined schedule.
 - **Log Rotation**: Maintains weekly logs of all backup activities.
 - **Multi-Repository Backups**: Allows backups to multiple BorgBackup repositories simultaneously.
+- **Healtcheck**: The healthcheck is based on the time of the last successful backup.
 
 ### Multi-target backups
 
@@ -64,6 +65,10 @@ Thus, the following sets of environment variables are valid for multi-target bac
   ```
 
   > This first back up to a remote repository, then to a local one
+
+### Healthcheck
+
+When a backup succeeds, it writes down the success time to a file. The healthcheck compares the current time with the last backup's time and it reports healthy if the two are between `MAX_BACKUP_AGE_SECONDS` of each other. This value can be overriden.
 
 ## Repository layout
 
