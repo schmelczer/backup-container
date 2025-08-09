@@ -2,9 +2,9 @@
 
 set -e
 
-if [ -f /backup_completion_time.log ]; then
+if [ -f /health/backup_completion_time.log ]; then
     current_time=$(date +%s)
-    backup_time=$(date --file /backup_completion_time.log +%s)
+    backup_time=$(date --file /health/backup_completion_time.log +%s)
     age_in_seconds=$((current_time - backup_time))
     
     if [ ${age_in_seconds} -lt ${MAX_BACKUP_AGE_SECONDS} ]; then

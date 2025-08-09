@@ -31,7 +31,7 @@ services:
       - /volumes/backup/logs:/backup-logs # we will store the output of the backup commands in this folder
       - borg-cache:/root/.cache/borg # speed up subsequent backups
 
-      - health-flag:/backup_completion_time.log # this is used to determine if the backup was successful and when it was last run
+      - health-flag:/health/backup_completion_time.log # this is used to determine if the backup was successful and when it was last run
 
       - /bulk/backup:/local-backup # this is an example target backup path for BORG_REPO_1 from above
       - /volumes/backup/config/id_rsa:/root/.ssh/id_rsa # this is an example for mounting an ssh key for a remote repo (BORG_REPO_0 above)

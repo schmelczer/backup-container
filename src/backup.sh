@@ -49,4 +49,4 @@ borg compact --threshold=5 --cleanup-commits --verbose --progress
 btrfs subvolume delete /snapshot/source
 
 echo "Finished backup script at `date`"
-date > /backup_completion_time.log # this used by the healtcheck
+date > /health/backup_completion_time.log # this used by the healtcheck
