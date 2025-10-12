@@ -23,13 +23,13 @@ fi
 # we want to stop the script immediately.
 set -e
 
-if [ -d "/snapshot/source" ]; then
-    btrfs subvolume delete /snapshot/source
+if [ -d "/snapshot/btrfs-root" ]; then
+    btrfs subvolume delete /snapshot/btrfs-root
 fi
 
-btrfs subvolume snapshot /source /snapshot
+btrfs subvolume snapshot /btrfs-root /snapshot
 
-cd /snapshot/source
+cd "/snapshot/btrfs-root$BACKUP_RELATIVE_PATH"
 borg create --stats \
     --list \
     --filter=AMCE \
@@ -46,7 +46,7 @@ borg prune --list --stats \
 
 borg compact --threshold=5 --cleanup-commits --verbose --progress
 
-btrfs subvolume delete /snapshot/source
+btrfs subvolume delete /snapshot/btrfs-root
 
 echo "Finished backup script at `date`"
 date > /health/backup_completion_time.log # this used by the healtcheck

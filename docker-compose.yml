@@ -26,9 +26,10 @@ services:
       # Used for determining the health of the container
       - MAX_BACKUP_AGE_SECONDS=86400 # default: 86400 (1d)
     volumes:
-      - /volumes:/source:ro # we backup this folder (which is a BTRFS volume), we mustn't change it, so it's readonly
+      - /:/btrfs-root:ro
       - /volumes/backup:/snapshot # we must mount a path to a folder on the BTRFS disk for the snapshot to be put at, this is just a temporary path
       - /volumes/backup/logs:/backup-logs # we will store the output of the backup commands in this folder
+      
       - borg-cache:/root/.cache/borg # speed up subsequent backups
 
       - health-flag:/health # this is used to determine if the backup was successful and when it was last run
