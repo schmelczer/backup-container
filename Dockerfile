@@ -1,4 +1,4 @@
-FROM alpine:3.21.3
+FROM alpine:3.23.2
 
 # this is the default, but just to be explicit
 USER root
