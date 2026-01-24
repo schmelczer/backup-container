@@ -37,9 +37,16 @@ configure_environment() {
 }
 
 main() {
+    # Clear health log at start - only a fully successful run should be marked healthy
+    rm -f /health/backup_completion_time.log
+
     if [ -n "$BORG_REPO" ]; then
         # fallback case if multi-target backup isn't needed
-        execute_script
+        if execute_script; then
+            date > /health/backup_completion_time.log
+        else
+            echo "Skipping completion log due to backup failure"
+        fi
     else
         local index=0
         local configurations_found=false

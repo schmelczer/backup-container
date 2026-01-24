@@ -10,7 +10,7 @@ get_log_file_name() {
     echo "/backup-logs/backup_$(date +%Y)_week_$(date +%U).log"
 }
 
-echo "Starting schedule script at `date`" | log_message
+echo "Starting schedule script at $(date)" | log_message
 
 while true; do
     exec /src/backup-wrapper.sh 2>&1 | log_message
