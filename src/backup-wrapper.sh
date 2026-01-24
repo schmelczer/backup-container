@@ -43,13 +43,21 @@ main() {
     else
         local index=0
         local configurations_found=false
+        local any_failed=false
 
         while configure_environment $index; do
-            execute_script || true
+            execute_script || any_failed=true
             configurations_found=true
             unset BORG_PASSPHRASE BORG_REMOTE_PATH BORG_REPO
             ((index++))
         done
+
+        echo "Finished backup script at $(date)"
+        if [[ $any_failed == false ]]; then
+            date > /health/backup_completion_time.log # this used by the healtcheck
+        else
+            echo "Skipping completion log due to backup failure(s)"
+        fi
 
         if [[ $configurations_found == false ]]; then
             echo "No valid configuration found. Please ensure environment variables are set properly."
