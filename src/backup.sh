@@ -30,12 +30,44 @@ fi
 btrfs subvolume snapshot /btrfs-root /snapshot
 
 cd "/snapshot/btrfs-root$BACKUP_RELATIVE_PATH"
+
+# Generate exclusions for git-untracked files if enabled
+EXCLUDE_ARGS="--exclude-from /exclude.conf"
+if [ "${IGNORE_GIT_UNTRACKED:-false}" = "true" ]; then
+    echo "Generating exclusions for git-untracked files..."
+    GIT_EXCLUDE_FILE=$(mktemp)
+
+    # Find all git repositories and list their untracked files
+    find . -name .git -type d 2>/dev/null | while read gitdir; do
+        repo_dir=$(dirname "$gitdir")
+        (
+            cd "$repo_dir"
+            # Get untracked files (respecting .gitignore)
+            git ls-files --others --exclude-standard 2>/dev/null | while read file; do
+                # Output path relative to backup root
+                echo "${repo_dir#./}/$file"
+            done
+        )
+    done > "$GIT_EXCLUDE_FILE"
+
+    excluded_count=$(wc -l < "$GIT_EXCLUDE_FILE")
+    echo "Found $excluded_count git-untracked files to exclude"
+
+    EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude-from $GIT_EXCLUDE_FILE"
+fi
+
 borg create --stats \
     --list \
     --filter=AMCE \
     --files-cache=ctime,size,inode \
     --compression=zstd,12 \
-    --exclude-from /exclude.conf ::"{hostname}-{now:%Y-%m-%dT%H:%M:%S}" .
+    $EXCLUDE_ARGS ::"{hostname}-{now:%Y-%m-%dT%H:%M:%S}" .
+
+# Clean up temporary exclude file
+if [ -n "$GIT_EXCLUDE_FILE" ] && [ -f "$GIT_EXCLUDE_FILE" ]; then
+    rm -f "$GIT_EXCLUDE_FILE"
+fi
+
 cd -
 
 borg prune --list --stats \
