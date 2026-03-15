@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Starting backup wrapper script at `date`"
+echo "Starting backup wrapper script at $(date)"
 
 execute_script() {
     echo "Executing script with:"
@@ -28,18 +28,13 @@ configure_environment() {
     done
 
     # optional variables
-    for var in BORG_REMOTE_PATH; do
-        local indexed_var_name="${var}_${index}"
-        export $var="${!indexed_var_name}"
-    done
+    local indexed_var_name="BORG_REMOTE_PATH_${index}"
+    export BORG_REMOTE_PATH="${!indexed_var_name}"
 
     [[ $all_vars_set == true ]]
 }
 
 main() {
-    # Clear health log at start - only a fully successful run should be marked healthy
-    rm -f /health/backup_completion_time.log
-
     if [ -n "$BORG_REPO" ]; then
         # fallback case if multi-target backup isn't needed
         if execute_script; then
@@ -74,4 +69,4 @@ main() {
 
 main
 
-echo "Finished backup wrapper script at `date`"
+echo "Finished backup wrapper script at $(date)"

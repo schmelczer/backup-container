@@ -7,7 +7,7 @@ if [ -f /health/backup_completion_time.log ]; then
     backup_time=$(date --file /health/backup_completion_time.log +%s)
     age_in_seconds=$((current_time - backup_time))
     
-    if [ ${age_in_seconds} -lt ${MAX_BACKUP_AGE_SECONDS} ]; then
+    if [ ${age_in_seconds} -lt "${MAX_BACKUP_AGE_SECONDS}" ]; then
         echo "Backup completed within the last ${MAX_BACKUP_AGE_SECONDS} seconds. Healthcheck passed."
         exit 0
     fi
