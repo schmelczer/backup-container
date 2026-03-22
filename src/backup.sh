@@ -17,10 +17,21 @@ if ! borg info; then
     borg init --encryption=repokey
 fi
 
-# The above command will fail if the repo hasn't been already initialized, 
+# The above command will fail if the repo hasn't been already initialized,
 # so we can ignore the return status. However, if any of the commands below fail,
 # we want to stop the script immediately.
 set -e
+
+cleanup() {
+    if [ -n "${GIT_EXCLUDE_FILE:-}" ] && [ -f "$GIT_EXCLUDE_FILE" ]; then
+        rm -f "$GIT_EXCLUDE_FILE"
+    fi
+    if [ -d "/snapshot/btrfs-root" ]; then
+        cd /
+        btrfs subvolume delete /snapshot/btrfs-root || true
+    fi
+}
+trap cleanup EXIT
 
 if [ -d "/snapshot/btrfs-root" ]; then
     btrfs subvolume delete /snapshot/btrfs-root
@@ -28,7 +39,7 @@ fi
 
 btrfs subvolume snapshot /btrfs-root /snapshot
 
-cd "/snapshot/btrfs-root$BACKUP_RELATIVE_PATH"
+cd "/snapshot/btrfs-root${BACKUP_RELATIVE_PATH:-}"
 
 # Generate exclusions for git-untracked files if enabled
 EXCLUDE_ARGS=(--exclude-from /exclude.conf)
@@ -37,12 +48,12 @@ if [ "${IGNORE_GIT_UNTRACKED:-false}" = "true" ]; then
     GIT_EXCLUDE_FILE=$(mktemp)
 
     # Find all git repositories and list their untracked files
-    find . -name .git -type d 2>/dev/null | while read -r gitdir; do
+    find . -name .git -type d | while read -r gitdir; do
         repo_dir=$(dirname "$gitdir")
         (
             cd "$repo_dir"
             # Get untracked files (respecting .gitignore)
-            git ls-files --others --exclude-standard 2>/dev/null | while read -r file; do
+            git ls-files --others --exclude-standard | while read -r file; do
                 # Output path relative to backup root
                 echo "${repo_dir#./}/$file"
             done
@@ -62,11 +73,6 @@ borg create --stats \
     --compression=zstd,12 \
     "${EXCLUDE_ARGS[@]}" ::"{hostname}-{now:%Y-%m-%dT%H:%M:%S}" .
 
-# Clean up temporary exclude file
-if [ -n "$GIT_EXCLUDE_FILE" ] && [ -f "$GIT_EXCLUDE_FILE" ]; then
-    rm -f "$GIT_EXCLUDE_FILE"
-fi
-
 cd -
 
 borg prune --list --stats \
@@ -76,6 +82,3 @@ borg prune --list --stats \
     --keep-yearly="$KEEP_YEARLY"
 
 borg compact --threshold=5 --cleanup-commits --verbose --progress
-
-btrfs subvolume delete /snapshot/btrfs-root
-
