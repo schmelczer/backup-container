@@ -19,7 +19,7 @@ Over the past 2 years, this backup setup has enabled me to successfully restore 
 - **Scheduled Backups**: Automates backups according to a defined schedule.
 - **Log Rotation**: Maintains weekly logs of all backup activities.
 - **Multi-Repository Backups**: Allows backups to multiple BorgBackup repositories simultaneously.
-- **Healtcheck**: The healthcheck is based on the time of the last successful backup.
+- **Healthcheck**: The healthcheck is based on the time of the last successful backup.
 
 ### Multi-target backups
 

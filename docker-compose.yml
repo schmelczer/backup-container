@@ -3,7 +3,6 @@ services:
     image: ghcr.io/schmelczer/backup-container:latest
     container_name: backup
     init: true
-    tty: true
     environment:
       - TZ=Europe/London
       - SLEEP_TIME=1h # we will wait an hour between backups
