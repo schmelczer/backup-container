@@ -1,4 +1,4 @@
 Host *
-    StrictHostKeyChecking no
+    StrictHostKeyChecking accept-new
     ServerAliveInterval 30
     ServerAliveCountMax 3
