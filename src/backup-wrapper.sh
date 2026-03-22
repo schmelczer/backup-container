@@ -20,7 +20,7 @@ configure_environment() {
     for var in BORG_PASSPHRASE BORG_REPO; do
         local indexed_var_name="${var}_${index}"
         if [[ -n "${!indexed_var_name}" ]]; then
-            export $var="${!indexed_var_name}"
+            export "$var"="${!indexed_var_name}"
         else
             all_vars_set=false
             break

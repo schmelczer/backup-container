@@ -14,7 +14,7 @@ echo "Starting schedule script at $(date)" | log_message
 date > /health/container_start_time.log
 
 while true; do
-    exec /src/backup-wrapper.sh 2>&1 | log_message
+    /src/backup-wrapper.sh 2>&1 | log_message
     echo "Sleeping for $SLEEP_TIME" | log_message
 
     # Using a simple sleep loop to schedule backups instead of cron to avoid concurrency issues
