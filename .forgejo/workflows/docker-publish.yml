@@ -15,7 +15,10 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-docker
+    container:
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
 
     steps:
       - name: Checkout repository
