@@ -29,7 +29,11 @@ configure_environment() {
 
     # optional variables
     local indexed_var_name="BORG_REMOTE_PATH_${index}"
-    export BORG_REMOTE_PATH="${!indexed_var_name}"
+    if [[ -n "${!indexed_var_name}" ]]; then
+        export BORG_REMOTE_PATH="${!indexed_var_name}"
+    else
+        unset BORG_REMOTE_PATH
+    fi
 
     [[ $all_vars_set == true ]]
 }
