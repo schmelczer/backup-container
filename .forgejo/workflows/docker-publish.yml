@@ -13,9 +13,7 @@ env:
 
 jobs:
   build:
-
-    runs-on: ubuntu-docker
-
+    runs-on: docker
     steps:
       - name: Checkout repository
         uses: https://code.forgejo.org/actions/checkout@v4
