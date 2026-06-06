@@ -7,10 +7,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  REGISTRY: ${{ forgejo.server_url }}
-  IMAGE_NAME: ${{ forgejo.repository }}
-
 jobs:
   build:
     runs-on: docker
@@ -18,21 +14,9 @@ jobs:
       - name: Checkout repository
         uses: https://code.forgejo.org/actions/checkout@v4
 
-      - name: Log into registry
-        if: forgejo.event_name != 'pull_request'
-        run: echo "${{ secrets.FORGEJO_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ forgejo.actor }} --password-stdin
-
-      - name: Build Docker image
-        run: |
-          TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          if [ "${{ forgejo.ref_type }}" = "tag" ]; then
-            VERSION="${{ forgejo.ref_name }}"
-            docker build -t "$TAG" -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}" .
-          else
-            docker build -t "$TAG" .
-          fi
-
-      - name: Push Docker image
-        if: forgejo.event_name != 'pull_request'
-        run: |
-          docker push --all-tags "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+      - name: Build and publish image
+        uses: http://forgejo:3000/andras/ci-actions/docker-publish@main
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          token: ${{ secrets.FORGEJO_TOKEN }}
