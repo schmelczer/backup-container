@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: "${ARCHIVE_PREFIX:?Set ARCHIVE_PREFIX to a non-empty archive prefix (e.g. my-host-)}"
+
 KEEP_DAILY=${KEEP_DAILY:-6}
 KEEP_WEEKLY=${KEEP_WEEKLY:-3}
 KEEP_MONTHLY=${KEEP_MONTHLY:-48}
@@ -71,11 +73,12 @@ borg create --stats \
     --filter=AMCE \
     --files-cache=ctime,size,inode \
     --compression=zstd,12 \
-    "${EXCLUDE_ARGS[@]}" ::"{hostname}-{now:%Y-%m-%dT%H:%M:%S}" .
+    "${EXCLUDE_ARGS[@]}" ::"${ARCHIVE_PREFIX}{now:%Y-%m-%dT%H:%M:%S}" .
 
 cd -
 
 borg prune --list --stats \
+    --glob-archives="${ARCHIVE_PREFIX}*" \
     --keep-daily="$KEEP_DAILY" \
     --keep-weekly="$KEEP_WEEKLY" \
     --keep-monthly="$KEEP_MONTHLY" \

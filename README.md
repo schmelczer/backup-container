@@ -23,6 +23,8 @@ Over the past 2 years, this backup setup has enabled me to successfully restore 
 
 ### Multi-target backups
 
+Set the required `ARCHIVE_PREFIX` environment variable to a non-empty prefix shared by all backup targets. Include any separator in the value: `ARCHIVE_PREFIX=my-host-` creates archives named `my-host-{now:%Y-%m-%dT%H:%M:%S}`. Pruning uses the glob `${ARCHIVE_PREFIX}*`, so retention rules only apply to matching archives. To continue pruning existing archives, set the prefix to their previous hostname followed by `-`.
+
 To adhere to the [3-2-1 backup rule](https://en.wikipedia.org/wiki/Backup) without disk-level redundancy, you can configure backups to multiple destinations. For example, backups can be sent simultaneously to [rsync.net](rsync.net) and a local HDD.
 
 The [`docker-compose.yml`](docker-compose.yml) file demonstrates how to set up multiple backup targets using environment variables such as `BORG_REPO_0`, `BORG_REPO_1`, `BORG_PASSPHRASE_0`, `BORG_PASSPHRASE_1`, and so forth. The backup script sequentially handles each repository defined by the environment variables, ensuring your source volume is backed up across all specified targets.
@@ -32,6 +34,7 @@ The backup script first takes `BORG_REPO_0` and the corresponding env vars and s
 Thus, the following sets of environment variables are valid for multi-target backups:
 
 - ```sh
+    - ARCHIVE_PREFIX=my-host-
     - BORG_PASSPHRASE=$PASSWORD
     - BORG_REPO=/local-backup
   ```
@@ -39,6 +42,7 @@ Thus, the following sets of environment variables are valid for multi-target bac
   > This just backs up to a local repository
 
 - ```sh
+    - ARCHIVE_PREFIX=my-host-
     - BORG_PASSPHRASE_0=$PASSWORD
     - BORG_REPO_0=/local-backup
   ```
@@ -46,6 +50,7 @@ Thus, the following sets of environment variables are valid for multi-target bac
   > This just backs up to a local repository
 
 - ```sh
+    - ARCHIVE_PREFIX=my-host-
     - BORG_PASSPHRASE_0=$PASSWORD
     - BORG_REPO_0=/local-backup
 
@@ -56,6 +61,7 @@ Thus, the following sets of environment variables are valid for multi-target bac
   > This backs up to two different local repositories
 
 - ```sh
+    - ARCHIVE_PREFIX=my-host-
     - BORG_PASSPHRASE_0=$PASSWORD
     - BORG_REMOTE_PATH_0=borg1
     - BORG_REPO_0=my-username@my-username.rsync.net:~/backup

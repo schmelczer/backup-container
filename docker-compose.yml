@@ -6,6 +6,7 @@ services:
     environment:
       - TZ=Europe/London
       - SLEEP_TIME=1h # we will wait an hour between backups
+      - ARCHIVE_PREFIX=my-host- # required; include any separator before the timestamp
 
       # first backup goes to rsync.net
       - BORG_PASSPHRASE_0=MY_PASSWORD_CHANGE_THIS
