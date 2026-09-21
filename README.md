@@ -74,7 +74,9 @@ Thus, the following sets of environment variables are valid for multi-target bac
 
 ### Healthcheck
 
-When a backup succeeds, it writes down the success time to a file. The healthcheck compares the current time with the last backup's time and it reports healthy if the two are between `MAX_BACKUP_AGE_SECONDS` of each other. This value can be overriden.
+The container is healthy when its last successful backup is less than `MAX_BACKUP_AGE_SECONDS` old (default: `86400`, or one day). All configured targets must succeed. Set this to a positive integer that allows enough time for backups and `SLEEP_TIME`.
+
+Before the first successful backup, the same limit provides a startup grace period. Failed backups leave the last success time unchanged, and restarting does not hide an overdue backup.
 
 ## Repository layout
 
@@ -93,6 +95,16 @@ When a backup succeeds, it writes down the success time to a file. The healthche
 - Explore detailed BorgBackup documentation and demos: [BorgBackup Documentation](https://www.borgbackup.org/demo.html), including a comprehensive guide on [`borg create`](https://borgbackup.readthedocs.io/en/stable/usage/create.html#description).
 
 ## Development
+
+Run the healthcheck tests in a disposable container (backups are mocked):
+
+```sh
+docker build -t backup-healthcheck-tests .
+tar -c tests | docker run --rm -i --network none --entrypoint /bin/bash \
+  -e BACKUP_HEALTHCHECK_TEST=1 backup-healthcheck-tests \
+  -c 'tar -x -C / && bash /tests/healthcheck.sh'
+shellcheck src/*.sh tests/*.sh
+```
 
 Create a new tag:
 

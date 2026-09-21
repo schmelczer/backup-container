@@ -11,7 +11,10 @@ get_log_file_name() {
 }
 
 echo "Starting schedule script at $(date)" | log_message
-date > /health/container_start_time.log
+mkdir -p /health || exit 1
+trap 'rm -f /health/container_start_time.log.$$' EXIT
+date -u '+%Y-%m-%dT%H:%M:%SZ' > /health/container_start_time.log.$$ &&
+    mv -fT /health/container_start_time.log.$$ /health/container_start_time.log || exit 1
 
 while true; do
     /src/backup-wrapper.sh 2>&1 | log_message
