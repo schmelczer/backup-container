@@ -29,6 +29,8 @@ To adhere to the [3-2-1 backup rule](https://en.wikipedia.org/wiki/Backup) witho
 
 The [`docker-compose.yml`](docker-compose.yml) file demonstrates how to set up multiple backup targets using environment variables such as `BORG_REPO_0`, `BORG_REPO_1`, `BORG_PASSPHRASE_0`, `BORG_PASSPHRASE_1`, and so forth. The backup script sequentially handles each repository defined by the environment variables, ensuring your source volume is backed up across all specified targets.
 
+Missing repositories are initialized automatically. An existing local directory, including the `/local-backup` bind mount, is initialized only after confirming that it is empty (including hidden files). Invalid or inaccessible repositories are rejected.
+
 The backup script first takes `BORG_REPO_0` and the corresponding env vars and sets up the [`BORG_REPO`](https://borgbackup.readthedocs.io/en/stable/usage/general.html#repository-urls), `BORG_REMOTE_PATH`, and `BORG_PASSPHRASE` environment variables for `borg`. Once the backup finished (successfully or otherwise), the script checks whether `BORG_REPO_1` exists, if so, it sets `BORG_REPO` and the other env vars to their expected values and backs up again. The script keeps going to `BORG_REPO_2`, `BORG_REPO_3` and so on as long as these are set. It then checks each repository with the corresponding environment before starting the next backup cycle.
 
 Thus, the following sets of environment variables are valid for multi-target backups:
@@ -88,9 +90,11 @@ Borg resumes partial checks from the last segment checked. These checks inspect 
 
 Mount a Btrfs subvolume at `/btrfs-root`, and a writable directory on the same Btrfs filesystem at `/snapshot`. The backup assembles snapshots of the root and every nested subvolume, including Btrfs subvolumes mounted below the source. Child snapshots are taken sequentially: each is consistent individually, but there is no single atomic snapshot across subvolumes. Applications spanning subvolumes may need to be paused to obtain a consistent backup.
 
-Failure to snapshot a child fails the backup. A mounted child on a different Btrfs filesystem cannot be snapshotted into the same destination; configure a separate backup container for it. Non-Btrfs mounts are outside snapshot coverage. A mount point hiding nonempty underlying directories is rejected rather than discarding that hidden data. The temporary snapshot itself is omitted, and cleanup deletes child snapshots before their parents.
+Failure to snapshot a child fails the backup. A mounted child on a different Btrfs filesystem cannot be snapshotted into the same destination; configure a separate backup container for it. Non-Btrfs mounts and bind mounts of ordinary directories or files are outside snapshot coverage: the snapshot retains the underlying source directory, without the mounted contents. Ordinary Btrfs bind mounts are reported in the backup log. To include that data, back up the subvolume containing it. A mounted subvolume hiding nonempty underlying directories is rejected rather than discarding that hidden data. Recursive subvolume mounts are rejected. The temporary snapshot itself is omitted, and cleanup deletes child snapshots before their parents.
 
-Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the assembled snapshot. The default exclusions match `.env`, `.dev.env`, `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
+Directory access and modification times are preserved when assembling child snapshots and removing scratch placeholders. Discovery and cleanup use batched directory traversal without launching a process per directory.
+
+Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the assembled snapshot. It must resolve inside that snapshot; paths that escape through `..` or symlinks fail the backup. The default exclusions match `.env`, `.dev.env`, `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. These settings apply to Borg after snapshot assembly, so excluded directories are still traversed during snapshot discovery. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
 
 ### Healthcheck
 

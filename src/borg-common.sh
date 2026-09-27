@@ -2,6 +2,26 @@
 
 export BORG_RSH='ssh -oBatchMode=yes'
 
+borg_ensure_repository() {
+    local status=0
+    borg_wait info || status=$?
+    (( status != 0 )) || return 0
+    if (( status == 13 )) || (( status == 15 )); then
+        echo 'Repository is missing or confirmed empty. Initializing Borg...'
+        status=0
+        borg_wait init --encryption=repokey || status=$?
+        # Another client may have initialized it after the initial check.
+        if (( status == 10 )); then
+            borg_wait info
+        else
+            return "$status"
+        fi
+    else
+        echo "Cannot access repository (Borg exit status $status). Skipping backup." >&2
+        return "$status"
+    fi
+}
+
 # Borg expands placeholders in both names and archive filters. Only the filter
 # needs glob escaping; user-supplied prefixes are literal in both places.
 borg_literal_prefix() {

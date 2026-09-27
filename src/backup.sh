@@ -16,27 +16,7 @@ source /src/borg-common.sh
 archive_prefix=$(borg_literal_prefix archive "$ARCHIVE_PREFIX")
 archive_glob=$(borg_literal_prefix glob "$ARCHIVE_PREFIX")
 
-# Only a missing repository (modern exit code 13) triggers initialization.
-info_status=0
-borg_wait info || info_status=$?
-case "$info_status" in
-    0) ;;
-    13)
-        echo "Repository does not exist. Initializing Borg..."
-        init_status=0
-        borg_wait init --encryption=repokey || init_status=$?
-        case "$init_status" in
-            0) ;;
-            # Another client may have initialized the repository in between.
-            10) borg_wait info ;;
-            *) exit "$init_status" ;;
-        esac
-        ;;
-    *)
-        echo "Cannot access repository (Borg exit status $info_status). Skipping backup." >&2
-        exit "$info_status"
-        ;;
-esac
+borg_ensure_repository
 
 cleanup() {
     local status=$?
@@ -54,7 +34,16 @@ fi
 
 /src/snapshot.sh create /btrfs-root /snapshot/btrfs-root
 
-cd "/snapshot/btrfs-root${BACKUP_RELATIVE_PATH:-}"
+case ${BACKUP_RELATIVE_PATH:-} in
+    ''|/*) ;;
+    *) echo 'BACKUP_RELATIVE_PATH must start with /.' >&2; exit 1 ;;
+esac
+IFS= read -r -d '' backup_directory < <(realpath -ez -- "/snapshot/btrfs-root${BACKUP_RELATIVE_PATH:-}")
+if [[ $backup_directory != /snapshot/btrfs-root && $backup_directory != /snapshot/btrfs-root/* ]]; then
+    echo 'BACKUP_RELATIVE_PATH must resolve to a directory within the snapshot.' >&2
+    exit 1
+fi
+cd -- "$backup_directory"
 
 borg_wait create --stats \
     --list \
