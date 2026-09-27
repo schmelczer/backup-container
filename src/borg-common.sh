@@ -6,8 +6,11 @@ borg_ensure_repository() {
     local status=0
     borg_wait info || status=$?
     (( status != 0 )) || return 0
-    if (( status == 13 )) || (( status == 15 )); then
-        echo 'Repository is missing or confirmed empty. Initializing Borg...'
+    # Borg 1.4 reports InvalidRepository over SSH as generic RPC exit code 2,
+    # even with modern exit codes enabled. Let init validate the destination:
+    # it accepts missing/empty directories and refuses existing data.
+    if (( status == 2 || status == 13 || status == 15 )); then
+        echo 'Repository could not be opened. Attempting Borg initialization...'
         status=0
         borg_wait init --encryption=repokey || status=$?
         # Another client may have initialized it after the initial check.

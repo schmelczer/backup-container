@@ -29,7 +29,7 @@ To adhere to the [3-2-1 backup rule](https://en.wikipedia.org/wiki/Backup) witho
 
 The [`docker-compose.yml`](docker-compose.yml) file demonstrates how to set up multiple backup targets using environment variables such as `BORG_REPO_0`, `BORG_REPO_1`, `BORG_PASSPHRASE_0`, `BORG_PASSPHRASE_1`, and so forth. The backup script sequentially handles each repository defined by the environment variables, ensuring your source volume is backed up across all specified targets.
 
-Missing repositories are initialized automatically. An existing local directory, including the `/local-backup` bind mount, is initialized only after confirming that it is empty (including hidden files). Invalid or inaccessible repositories are rejected.
+Missing repositories are initialized automatically. Existing directories, both local (including the `/local-backup` bind mount) and over SSH, are initialized only after Borg confirms that they are empty (including hidden files). Invalid or inaccessible repositories are rejected.
 
 The backup script first takes `BORG_REPO_0` and the corresponding env vars and sets up the [`BORG_REPO`](https://borgbackup.readthedocs.io/en/stable/usage/general.html#repository-urls), `BORG_REMOTE_PATH`, and `BORG_PASSPHRASE` environment variables for `borg`. Once the backup finished (successfully or otherwise), the script checks whether `BORG_REPO_1` exists, if so, it sets `BORG_REPO` and the other env vars to their expected values and backs up again. The script keeps going to `BORG_REPO_2`, `BORG_REPO_3` and so on as long as these are set. It then checks each repository with the corresponding environment before starting the next backup cycle.
 
