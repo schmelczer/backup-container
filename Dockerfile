@@ -15,7 +15,7 @@ COPY src /src
 COPY config/ssh_config /etc/ssh/
 COPY config/exclude.conf /exclude.conf
 
-# Add healthcheck to verify backup completed within allowed time
+# Check for backup failures and a success within the allowed time.
 ENV MAX_BACKUP_AGE_SECONDS=86400
 HEALTHCHECK --interval=10s --timeout=10s CMD /src/healthcheck.sh
 

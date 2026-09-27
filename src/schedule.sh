@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SLEEP_TIME=${SLEEP_TIME:-1h}
+# Preserve the wrapper's failure through the logging pipeline and stop the loop.
+set -eo pipefail
 
 log_message() {
     stdbuf -o0 tee -a "$(get_log_file_name)"
@@ -17,9 +18,7 @@ date -u '+%Y-%m-%dT%H:%M:%SZ' > /health/container_start_time.log.$$ &&
     mv -fT /health/container_start_time.log.$$ /health/container_start_time.log || exit 1
 
 while true; do
+    # The wrapper checks every repository after backups, using SLEEP_TIME as
+    # its total check budget. Start the next cycle as soon as checks finish.
     /src/backup-wrapper.sh 2>&1 | log_message
-    echo "Sleeping for $SLEEP_TIME" | log_message
-
-    # Using a simple sleep loop to schedule backups instead of cron to avoid concurrency issues
-    sleep "$SLEEP_TIME"
 done

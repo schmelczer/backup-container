@@ -2,15 +2,56 @@
 
 echo "Starting backup wrapper script at $(date)"
 
+mkdir -p /health || exit 1
+
+# Called indirectly by the EXIT trap, including configuration failures.
+# shellcheck disable=SC2317
+finish() {
+    local status=$?
+    if (( status != 0 )); then
+        touch /health/backup_failed || echo "Cannot record backup failure" >&2
+    fi
+    rm -f /health/backup_completion_time.log.$$
+    exit "$status"
+}
+trap 'finish' EXIT
+
+if [ -e /health/check_failed ]; then
+    echo "A previous repository check failed. Investigate and run full checks before clearing /health/check_failed." >&2
+    exit 1
+fi
+
+# shellcheck source=src/borg-common.sh
+source /src/borg-common.sh || exit 1
+
 execute_script() {
-    echo "Executing script with:"
+    echo "Executing $operation with:"
     if [ -n "$BORG_PASSPHRASE" ]; then
         echo "BORG_PASSPHRASE=<redacted>"
     fi
     echo "BORG_REMOTE_PATH='${BORG_REMOTE_PATH}'"
     echo "BORG_REPO='${BORG_REPO}'"
 
-    /src/backup.sh
+    local status=0
+    if [[ $operation == backup ]]; then
+        /src/backup.sh || status=$?
+    else
+        echo "Checking repository for up to $check_duration seconds"
+        borg_wait check --repository-only --max-duration="$check_duration" --info || status=$?
+        if (( status != 0 )); then
+            # Later partial checks may skip the damaged segment. Only clear
+            # this marker manually after investigating and fully checking it.
+            touch /health/check_failed || status=1
+            echo "Repository check failed (Borg exit status $status). Stopping backup cycle." >&2
+            exit "$status"
+        fi
+    fi
+    if (( status != 0 )); then
+        # Report failure while later targets are still running, and keep it
+        # across retries and container restarts until every target succeeds.
+        touch /health/backup_failed || return 1
+    fi
+    return "$status"
 }
 
 configure_environment() {
@@ -25,55 +66,103 @@ configure_environment() {
     fi
 }
 
+duration_seconds() {
+    local duration=$1 whole fraction multiplier seconds
+    local index product carry=0 remainder=0
+    local range_error='SLEEP_TIME must represent between 1 and 2147483647 seconds.'
+
+    if [[ ! $duration =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)([smhd]?)$ ]]; then
+        echo 'SLEEP_TIME must be a positive duration in seconds, minutes, hours or days.' >&2
+        return 1
+    fi
+    duration=${BASH_REMATCH[1]}
+    case ${BASH_REMATCH[3]} in
+        ''|s) multiplier=1 ;;
+        m) multiplier=60 ;;
+        h) multiplier=3600 ;;
+        d) multiplier=86400 ;;
+    esac
+
+    whole=${duration%%.*}
+    fraction=${duration#"$whole"}
+    fraction=${fraction#.}
+    # Strip leading zeros and bound the length before using Bash arithmetic.
+    whole=${whole#"${whole%%[!0]*}"}
+    if (( ${#whole} > 10 )); then
+        echo "$range_error" >&2
+        return 1
+    fi
+    seconds=$((10#${whole:-0} * multiplier))
+
+    # Multiply fractional digits from right to left, retaining any remainder
+    # so values above the upper limit are rejected before truncating seconds.
+    for ((index = ${#fraction} - 1; index >= 0; index--)); do
+        product=$((10#${fraction:index:1} * multiplier + carry))
+        carry=$((product / 10))
+        remainder=$((remainder || product % 10))
+    done
+    seconds=$((seconds + carry))
+    if (( seconds < 1 || seconds > 2147483647 || (seconds == 2147483647 && remainder) )); then
+        echo "$range_error" >&2
+        return 1
+    fi
+    echo "$seconds"
+}
+
 main() {
-    if [ -n "$BORG_REPO" ]; then
-        # fallback case if multi-target backup isn't needed
-        if ! execute_script; then
-            echo "Skipping completion log due to backup failure"
+    local check_budget check_duration operation
+    local index target_count=1 any_failed=false completed_indices indexed_var_name
+    # Preserve the existing SLEEP_TIME setting, including fractional durations.
+    check_budget=$(duration_seconds "${SLEEP_TIME:-1h}") || return 1
+
+    # Finish every backup before spending the former sleep interval checking.
+    for operation in backup check; do
+        check_duration=$((check_budget / target_count))
+        if (( check_duration == 0 )); then
+            echo "SLEEP_TIME must allow at least one second per repository."
             return 1
         fi
-    else
-        local index=0
-        local any_failed=false
-        local completed_indices=" "
-
-        while configure_environment "$index"; do
+        if [ -n "$BORG_REPO" ]; then
             execute_script || any_failed=true
-            completed_indices+="$index "
-            unset BORG_PASSPHRASE BORG_REMOTE_PATH BORG_REPO
-            ((index++))
-        done
+        else
+            index=0
+            completed_indices=" "
+            while configure_environment "$index"; do
+                execute_script || any_failed=true
+                completed_indices+="$index "
+                unset BORG_PASSPHRASE BORG_REMOTE_PATH BORG_REPO
+                ((index++))
+            done
+            target_count=$index
 
-        echo "Finished backup script at $(date)"
-        if (( index == 0 )); then
-            echo "No valid configuration found. Please ensure environment variables are set properly."
-            return 1
+            if (( index == 0 )); then
+                echo "No valid configuration found. Please ensure environment variables are set properly."
+                return 1
+            fi
+
+            # A missing or incomplete target must not silently hide later targets.
+            for indexed_var_name in ${!BORG_REPO_@} ${!BORG_PASSPHRASE_@} ${!BORG_REMOTE_PATH_@}; do
+                [[ -n ${!indexed_var_name} ]] || continue
+                case "$completed_indices" in
+                    *" ${indexed_var_name##*_} "*) ;;
+                    *)
+                        echo "Invalid or non-contiguous backup configuration: $indexed_var_name. Skipping completion log."
+                        return 1
+                        ;;
+                esac
+            done
         fi
+    done
 
-        # A missing or incomplete target must not silently hide later targets.
-        local indexed_var_name
-        for indexed_var_name in ${!BORG_REPO_@} ${!BORG_PASSPHRASE_@} ${!BORG_REMOTE_PATH_@}; do
-            [[ -n ${!indexed_var_name} ]] || continue
-            case "$completed_indices" in
-                *" ${indexed_var_name##*_} "*) ;;
-                *)
-                    echo "Invalid or non-contiguous backup configuration: $indexed_var_name. Skipping completion log."
-                    return 1
-                    ;;
-            esac
-        done
-
-        if [[ $any_failed == true ]]; then
-            echo "Skipping completion log due to backup failure(s)"
-            return 1
-        fi
+    if [[ $any_failed == true ]]; then
+        echo "Skipping completion log due to backup or check failure(s)"
+        return 1
     fi
 
-    # Rename only a complete timestamp, leaving the previous success intact on failure.
-    mkdir -p /health || return 1
-    trap 'rm -f /health/backup_completion_time.log.$$' EXIT
+    # Clear the failure only after publishing a complete, successful timestamp.
     date -u '+%Y-%m-%dT%H:%M:%SZ' > /health/backup_completion_time.log.$$ &&
-        mv -fT /health/backup_completion_time.log.$$ /health/backup_completion_time.log
+        mv -fT /health/backup_completion_time.log.$$ /health/backup_completion_time.log &&
+        rm -f /health/backup_failed
 }
 
 main

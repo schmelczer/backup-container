@@ -13,6 +13,9 @@ if ! [ "$MAX_BACKUP_AGE_SECONDS" -gt 0 ] 2>/dev/null; then
     unhealthy "MAX_BACKUP_AGE_SECONDS must be a positive integer."
 fi
 
+[ ! -e /health/check_failed ] || unhealthy "A repository check failed. Investigate and run full checks before clearing /health/check_failed."
+[ ! -e /health/backup_failed ] || unhealthy "A backup failed. Check the backup logs; all targets must succeed to recover."
+
 timestamp_file=/health/backup_completion_time.log
 [ -f "$timestamp_file" ] || timestamp_file=/health/container_start_time.log
 

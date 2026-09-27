@@ -5,7 +5,7 @@ services:
     init: true
     environment:
       - TZ=Europe/London
-      - SLEEP_TIME=1h # we will wait an hour between backups
+      - SLEEP_TIME=1h # total repository-check budget between backup rounds
       - ARCHIVE_PREFIX=my-host- # required; include any separator before the timestamp
 
       # first backup goes to rsync.net

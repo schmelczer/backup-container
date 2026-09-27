@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 : "${ARCHIVE_PREFIX:?Set ARCHIVE_PREFIX to a non-empty archive prefix (e.g. my-host-)}"
 
 KEEP_DAILY=${KEEP_DAILY:-6}
@@ -9,20 +11,30 @@ KEEP_YEARLY=${KEEP_YEARLY:-10}
 
 echo "Starting backup script at $(date)"
 
-export BORG_RSH='ssh -oBatchMode=yes' # https://borgbackup.readthedocs.io/en/stable/usage/notes.html#ssh-batch-mode
+# shellcheck source=src/borg-common.sh
+source /src/borg-common.sh
 
-# break any stale locks in case the script was interrupted
-borg break-lock
-
-if ! borg info; then
-    echo "Borg info returned a non-zero status. Initializing Borg..."
-    borg init --encryption=repokey
-fi
-
-# The above command will fail if the repo hasn't been already initialized,
-# so we can ignore the return status. However, if any of the commands below fail,
-# we want to stop the script immediately.
-set -e
+# Only a missing repository (modern exit code 13) triggers initialization.
+info_status=0
+borg_wait info || info_status=$?
+case "$info_status" in
+    0) ;;
+    13)
+        echo "Repository does not exist. Initializing Borg..."
+        init_status=0
+        borg_wait init --encryption=repokey || init_status=$?
+        case "$init_status" in
+            0) ;;
+            # Another client may have initialized the repository in between.
+            10) borg_wait info ;;
+            *) exit "$init_status" ;;
+        esac
+        ;;
+    *)
+        echo "Cannot access repository (Borg exit status $info_status). Skipping backup." >&2
+        exit "$info_status"
+        ;;
+esac
 
 cleanup() {
     if [ -n "${GIT_EXCLUDE_FILE:-}" ] && [ -f "$GIT_EXCLUDE_FILE" ]; then
@@ -68,7 +80,7 @@ if [ "${IGNORE_GIT_UNTRACKED:-false}" = "true" ]; then
     EXCLUDE_ARGS+=(--exclude-from "$GIT_EXCLUDE_FILE")
 fi
 
-borg create --stats \
+borg_wait create --stats \
     --list \
     --filter=AMCE \
     --files-cache=ctime,size,inode \
@@ -77,11 +89,11 @@ borg create --stats \
 
 cd -
 
-borg prune --list --stats \
+borg_wait prune --list --stats \
     --glob-archives="${ARCHIVE_PREFIX}*" \
     --keep-daily="$KEEP_DAILY" \
     --keep-weekly="$KEEP_WEEKLY" \
     --keep-monthly="$KEEP_MONTHLY" \
     --keep-yearly="$KEEP_YEARLY"
 
-borg compact --threshold=5 --cleanup-commits --verbose --progress
+borg_wait compact --threshold=5 --cleanup-commits --verbose --progress
