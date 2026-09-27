@@ -11,8 +11,7 @@ snapshot_create() (
 
     children=$(btrfs subvolume list -o "$source") || return 1
     if [[ -n $children ]]; then
-        printf 'Nested subvolumes are not supported under %s:\n%s\n' "$source" "$children" >&2
-        return 1
+        printf 'INFO: Nested subvolumes under %s will be omitted from the snapshot; continuing backup:\n%s\n' "$source" "$children"
     fi
 
     # Mounted subvolumes may live elsewhere and are absent from the list above.
@@ -22,8 +21,7 @@ snapshot_create() (
         [[ $mount == "${source%/}/"* && $mount != "$source" ]] || continue
         inode=$(stat -c %i -- "$mount") || return 1
         if [[ $inode == 256 && -d $mount ]]; then
-            printf 'Nested subvolumes are not supported: %s\n' "$mount" >&2
-            return 1
+            printf 'INFO: Mounted subvolume contents will be omitted from the snapshot; continuing backup: %s\n' "$mount"
         fi
     done < /proc/self/mountinfo || return 1
 

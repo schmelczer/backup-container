@@ -14,7 +14,7 @@ Over the past 2 years, this backup setup has enabled me to successfully restore 
 
 ## Features
 
-- **Snapshotting**: Takes snapshots of a BTRFS subvolume and its nested subvolumes to preserve each subvolume's file state during backups.
+- **Snapshotting**: Takes a snapshot of a BTRFS subvolume to preserve its file state during backups. Nested subvolume contents are omitted and reported in informational logs.
   > I self-host multiple databases and this is the most feasible way of avoiding data corruption.
 - **Scheduled Backups**: Automates backups according to a defined schedule.
 - **Log Rotation**: Maintains weekly logs of all backup activities.
@@ -88,13 +88,11 @@ Borg resumes partial checks from the last segment checked. These checks inspect 
 
 ### Snapshot coverage and exclusions
 
-Mount a Btrfs subvolume at `/btrfs-root`, and a writable directory on the same Btrfs filesystem at `/snapshot`. The backup assembles snapshots of the root and every nested subvolume, including Btrfs subvolumes mounted below the source. Child snapshots are taken sequentially: each is consistent individually, but there is no single atomic snapshot across subvolumes. Applications spanning subvolumes may need to be paused to obtain a consistent backup.
+Mount a Btrfs subvolume at `/btrfs-root`, and a writable directory on the same Btrfs filesystem at `/snapshot`. The backup takes a snapshot of the source subvolume. [Btrfs snapshots are not recursive](https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html#nested-subvolumes): nested subvolumes appear as empty placeholders, and their contents are not backed up. Nested subvolumes and Btrfs subvolumes mounted below the source are reported as informational messages and do not prevent the backup from continuing. Configure separate backups for any subvolume contents you need to preserve.
 
-Failure to snapshot a child fails the backup. A mounted child on a different Btrfs filesystem cannot be snapshotted into the same destination; configure a separate backup container for it. Non-Btrfs mounts and bind mounts of ordinary directories or files are outside snapshot coverage: the snapshot retains the underlying source directory, without the mounted contents. Ordinary Btrfs bind mounts are reported in the backup log. To include that data, back up the subvolume containing it. A mounted subvolume hiding nonempty underlying directories is rejected rather than discarding that hidden data. Recursive subvolume mounts are rejected. The temporary snapshot itself is omitted, and cleanup deletes child snapshots before their parents.
+Mounted contents, including non-Btrfs mounts and bind mounts, are outside snapshot coverage: the snapshot retains the underlying source directory, without the mounted contents. To include that data, back up the subvolume or filesystem containing it. Failures to inspect the source or create its snapshot still fail the backup. Cleanup deletes the temporary snapshot.
 
-Directory access and modification times are preserved when assembling child snapshots and removing scratch placeholders. Discovery and cleanup use batched directory traversal without launching a process per directory.
-
-Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the assembled snapshot. It must resolve inside that snapshot; paths that escape through `..` or symlinks fail the backup. The default exclusions match `.env`, `.dev.env`, `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. These settings apply to Borg after snapshot assembly, so excluded directories are still traversed during snapshot discovery. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
+Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the snapshot. It must resolve inside that snapshot; paths that escape through `..` or symlinks fail the backup. The default exclusions match `.env`, `.dev.env`, `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. These settings apply to Borg after snapshot creation. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
 
 ### Healthcheck
 
@@ -110,7 +108,7 @@ A failed repository check also creates `/health/check_failed`. While it exists, 
   - [backup.sh](src/backup.sh): Creates a new BorgBackup repository if none exists, takes a snapshot of the BTRFS volume, performs the backup, and prunes old backups.
   - [backup-wrapper.sh](src/backup-wrapper.sh): Backs up all configured targets, then performs time-limited repository checks.
   - [borg-common.sh](src/borg-common.sh): Shares Borg SSH settings and indefinite lock waiting between backups and checks.
-  - [snapshot.sh](src/snapshot.sh): Assembles nested snapshots and deletes them in reverse order.
+  - [snapshot.sh](src/snapshot.sh): Reports omitted subvolumes, creates the source snapshot, and deletes it after backup.
   - [interval.sh](src/interval.sh): Validates durations and waits for the unused check interval using system uptime, with 10 ms resolution.
   - [schedule.sh](src/schedule.sh): Manages and logs the operation of backup-wrapper.sh and runs it in a continuous loop.
 - config
