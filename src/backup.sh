@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
 : "${ARCHIVE_PREFIX:?Set ARCHIVE_PREFIX to a non-empty archive prefix (e.g. my-host-)}"
 
@@ -13,6 +13,8 @@ echo "Starting backup script at $(date)"
 
 # shellcheck source=src/borg-common.sh
 source /src/borg-common.sh
+archive_prefix=$(borg_literal_prefix archive "$ARCHIVE_PREFIX")
+archive_glob=$(borg_literal_prefix glob "$ARCHIVE_PREFIX")
 
 # Only a missing repository (modern exit code 13) triggers initialization.
 info_status=0
@@ -37,60 +39,35 @@ case "$info_status" in
 esac
 
 cleanup() {
-    if [ -n "${GIT_EXCLUDE_FILE:-}" ] && [ -f "$GIT_EXCLUDE_FILE" ]; then
-        rm -f "$GIT_EXCLUDE_FILE"
-    fi
+    local status=$?
     if [ -d "/snapshot/btrfs-root" ]; then
         cd /
-        btrfs subvolume delete /snapshot/btrfs-root || true
+        /src/snapshot.sh delete /snapshot/btrfs-root || status=1
     fi
+    exit "$status"
 }
 trap cleanup EXIT
 
 if [ -d "/snapshot/btrfs-root" ]; then
-    btrfs subvolume delete /snapshot/btrfs-root
+    /src/snapshot.sh delete /snapshot/btrfs-root
 fi
 
-btrfs subvolume snapshot /btrfs-root /snapshot
+/src/snapshot.sh create /btrfs-root /snapshot/btrfs-root
 
 cd "/snapshot/btrfs-root${BACKUP_RELATIVE_PATH:-}"
-
-# Generate exclusions for git-untracked files if enabled
-EXCLUDE_ARGS=(--exclude-from /exclude.conf)
-if [ "${IGNORE_GIT_UNTRACKED:-false}" = "true" ]; then
-    echo "Generating exclusions for git-untracked files..."
-    GIT_EXCLUDE_FILE=$(mktemp)
-
-    # Find all git repositories and list their untracked files
-    find . -name .git -type d | while read -r gitdir; do
-        repo_dir=$(dirname "$gitdir")
-        (
-            cd "$repo_dir"
-            # Get untracked files (respecting .gitignore)
-            git ls-files --others --exclude-standard | while read -r file; do
-                # Output path relative to backup root
-                echo "${repo_dir#./}/$file"
-            done
-        )
-    done > "$GIT_EXCLUDE_FILE"
-
-    excluded_count=$(wc -l < "$GIT_EXCLUDE_FILE")
-    echo "Found $excluded_count git-untracked files to exclude"
-
-    EXCLUDE_ARGS+=(--exclude-from "$GIT_EXCLUDE_FILE")
-fi
 
 borg_wait create --stats \
     --list \
     --filter=AMCE \
     --files-cache=ctime,size,inode \
     --compression=zstd,12 \
-    "${EXCLUDE_ARGS[@]}" ::"${ARCHIVE_PREFIX}{now:%Y-%m-%dT%H:%M:%S}" .
+    --exclude-from /exclude.conf \
+    ::"${archive_prefix}{now:%Y-%m-%dT%H:%M:%S}" .
 
 cd -
 
 borg_wait prune --list --stats \
-    --glob-archives="${ARCHIVE_PREFIX}*" \
+    --glob-archives="${archive_glob}*" \
     --keep-daily="$KEEP_DAILY" \
     --keep-weekly="$KEEP_WEEKLY" \
     --keep-monthly="$KEEP_MONTHLY" \

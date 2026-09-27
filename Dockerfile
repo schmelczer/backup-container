@@ -8,7 +8,7 @@ RUN apk --no-cache add \
     openssh \
     bash \
     coreutils \
-    git \
+    tzdata \
     borgbackup=1.4.0-r0
 
 COPY src /src

@@ -18,7 +18,7 @@ date -u '+%Y-%m-%dT%H:%M:%SZ' > /health/container_start_time.log.$$ &&
     mv -fT /health/container_start_time.log.$$ /health/container_start_time.log || exit 1
 
 while true; do
-    # The wrapper checks every repository after backups, using SLEEP_TIME as
-    # its total check budget. Start the next cycle as soon as checks finish.
+    # The wrapper checks every repository after backups, then sleeps for any
+    # unused part of SLEEP_TIME before allowing the next backup round.
     /src/backup-wrapper.sh 2>&1 | log_message
 done

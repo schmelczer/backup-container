@@ -6,7 +6,7 @@ Create a snapshot of a [BTRFS](https://docs.kernel.org/filesystems/btrfs.html) v
 
 1. Review and modify the [docker-compose.yml](docker-compose.yml) file to set your environment variables as needed
 2. Customise the [exclude.conf](config/exclude.conf) according to your requirements
-3. Execute the command `docker compose --env-file ./config/default.env up` to spin up the container
+3. Build the updated image with `docker build -t ghcr.io/schmelczer/backup-container:latest .`, then run `docker compose up -d`
 
 ## Background
 
@@ -14,7 +14,7 @@ Over the past 2 years, this backup setup has enabled me to successfully restore 
 
 ## Features
 
-- **Snapshotting**: Takes a snapshot of a BTRFS volume to ensure file consistency during backups.
+- **Snapshotting**: Takes snapshots of a BTRFS subvolume and its nested subvolumes to preserve each subvolume's file state during backups.
   > I self-host multiple databases and this is the most feasible way of avoiding data corruption.
 - **Scheduled Backups**: Automates backups according to a defined schedule.
 - **Log Rotation**: Maintains weekly logs of all backup activities.
@@ -23,7 +23,7 @@ Over the past 2 years, this backup setup has enabled me to successfully restore 
 
 ### Multi-target backups
 
-Set the required `ARCHIVE_PREFIX` environment variable to a non-empty prefix shared by all backup targets. Include any separator in the value: `ARCHIVE_PREFIX=my-host-` creates archives named `my-host-{now:%Y-%m-%dT%H:%M:%S}`. Pruning uses the glob `${ARCHIVE_PREFIX}*`, so retention rules only apply to matching archives. To continue pruning existing archives, set the prefix to their previous hostname followed by `-`.
+Set the required `ARCHIVE_PREFIX` environment variable to a non-empty prefix shared by all backup targets. Include any separator in the value: `ARCHIVE_PREFIX=my-host-` creates archives named `my-host-{now:%Y-%m-%dT%H:%M:%S}`. The prefix is literal: glob characters and braces are escaped before passing it to Borg. Retention rules only apply to names beginning with that literal prefix. To continue pruning existing archives, set the prefix to their previous hostname followed by `-`.
 
 To adhere to the [3-2-1 backup rule](https://en.wikipedia.org/wiki/Backup) without disk-level redundancy, you can configure backups to multiple destinations. For example, backups can be sent to [rsync.net](rsync.net) and a local HDD.
 
@@ -78,13 +78,23 @@ Multiple containers can back up different sources to the same repository, using 
 
 ### Checks between backups
 
+`SLEEP_TIME` (default `1h`) is the minimum interval from the end of a backup round to the start of the next one. Repository checks share this time budget equally. If checks finish early, the wrapper sleeps for the remaining interval; checks and lock waits that exceed the budget add no further sleep. Durations may use `s`, `m`, `h`, or `d`, including fractions such as `1.5h`. The duration must be between 1 and 2147483647 seconds and allow at least one whole second per repository. The image includes timezone data, so `TZ` controls archive timestamps and Borg's retention-day boundaries.
+
 After attempting every backup target, the wrapper runs `borg check --repository-only --max-duration=SECONDS --info` on each configured repository, including targets whose backup failed. Checks use the same credentials, remote executable and indefinite lock waiting as backups. They do not initialize, repair, prune or compact repositories. Any check warning or error immediately stops the cycle and the scheduler with Borg's nonzero exit status; later targets are not checked in that cycle. Lock contention continues waiting indefinitely.
 
 Borg resumes partial checks from the last segment checked. These checks inspect segment checksums; they do not verify repository indexes, archive metadata or cryptographic data integrity, and do not replace periodic full checks. See [Borg's partial-check documentation](https://borgbackup.readthedocs.io/en/1.4.0/usage/check.html).
 
+### Snapshot coverage and exclusions
+
+Mount a Btrfs subvolume at `/btrfs-root`, and a writable directory on the same Btrfs filesystem at `/snapshot`. The backup assembles snapshots of the root and every nested subvolume, including Btrfs subvolumes mounted below the source. Child snapshots are taken sequentially: each is consistent individually, but there is no single atomic snapshot across subvolumes. Applications spanning subvolumes may need to be paused to obtain a consistent backup.
+
+Failure to snapshot a child fails the backup. A mounted child on a different Btrfs filesystem cannot be snapshotted into the same destination; configure a separate backup container for it. Non-Btrfs mounts are outside snapshot coverage. A mount point hiding nonempty underlying directories is rejected rather than discarding that hidden data. The temporary snapshot itself is omitted, and cleanup deletes child snapshots before their parents.
+
+Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the assembled snapshot. The default exclusions match `.env`, `.dev.env`, `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
+
 ### Healthcheck
 
-The container is healthy when no backup or repository-check failure is recorded and its last successful cycle is less than `MAX_BACKUP_AGE_SECONDS` old (default: `86400`, or one day). All configured targets must succeed. Set this to a positive integer that allows enough time for backups, checks and lock waits.
+The container is healthy when no backup or repository-check failure is recorded and its last successful cycle is less than `MAX_BACKUP_AGE_SECONDS` old (default: `86400`, or one day). All configured targets must succeed. Set this to a positive integer that allows enough time for backups, checks, lock waits and the configured sleep interval.
 
 Before the first successful backup, the same limit provides a startup grace period, which ends immediately on a failed target or invalid configuration. A failure makes health checks fail even if a previous success or the startup timestamp is recent. Docker marks the container unhealthy after its configured healthcheck retries. The backup failure marker persists in `/health` across restarts and retries and is cleared only after all backups and scheduled checks succeed. Only then is the completion timestamp updated.
 
@@ -96,6 +106,8 @@ A failed repository check also creates `/health/check_failed`. While it exists, 
   - [backup.sh](src/backup.sh): Creates a new BorgBackup repository if none exists, takes a snapshot of the BTRFS volume, performs the backup, and prunes old backups.
   - [backup-wrapper.sh](src/backup-wrapper.sh): Backs up all configured targets, then performs time-limited repository checks.
   - [borg-common.sh](src/borg-common.sh): Shares Borg SSH settings and indefinite lock waiting between backups and checks.
+  - [snapshot.sh](src/snapshot.sh): Assembles nested snapshots and deletes them in reverse order.
+  - [interval.sh](src/interval.sh): Validates durations and waits for the unused check interval using system uptime, with 10 ms resolution.
   - [schedule.sh](src/schedule.sh): Manages and logs the operation of backup-wrapper.sh and runs it in a continuous loop.
 - config
   - [exclude.conf](config/exclude.conf): Exclude list for `borg`. Files matching these patterns won't be backed up.

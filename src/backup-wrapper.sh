@@ -66,57 +66,17 @@ configure_environment() {
     fi
 }
 
-duration_seconds() {
-    local duration=$1 whole fraction multiplier seconds
-    local index product carry=0 remainder=0
-    local range_error='SLEEP_TIME must represent between 1 and 2147483647 seconds.'
-
-    if [[ ! $duration =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)([smhd]?)$ ]]; then
-        echo 'SLEEP_TIME must be a positive duration in seconds, minutes, hours or days.' >&2
-        return 1
-    fi
-    duration=${BASH_REMATCH[1]}
-    case ${BASH_REMATCH[3]} in
-        ''|s) multiplier=1 ;;
-        m) multiplier=60 ;;
-        h) multiplier=3600 ;;
-        d) multiplier=86400 ;;
-    esac
-
-    whole=${duration%%.*}
-    fraction=${duration#"$whole"}
-    fraction=${fraction#.}
-    # Strip leading zeros and bound the length before using Bash arithmetic.
-    whole=${whole#"${whole%%[!0]*}"}
-    if (( ${#whole} > 10 )); then
-        echo "$range_error" >&2
-        return 1
-    fi
-    seconds=$((10#${whole:-0} * multiplier))
-
-    # Multiply fractional digits from right to left, retaining any remainder
-    # so values above the upper limit are rejected before truncating seconds.
-    for ((index = ${#fraction} - 1; index >= 0; index--)); do
-        product=$((10#${fraction:index:1} * multiplier + carry))
-        carry=$((product / 10))
-        remainder=$((remainder || product % 10))
-    done
-    seconds=$((seconds + carry))
-    if (( seconds < 1 || seconds > 2147483647 || (seconds == 2147483647 && remainder) )); then
-        echo "$range_error" >&2
-        return 1
-    fi
-    echo "$seconds"
-}
-
 main() {
-    local check_budget check_duration operation
+    local check_budget check_duration check_deadline operation
     local index target_count=1 any_failed=false completed_indices indexed_var_name
     # Preserve the existing SLEEP_TIME setting, including fractional durations.
-    check_budget=$(duration_seconds "${SLEEP_TIME:-1h}") || return 1
+    check_budget=$(/src/interval.sh budget "${SLEEP_TIME:-1h}") || return 1
 
     # Finish every backup before spending the former sleep interval checking.
     for operation in backup check; do
+        if [[ $operation == check ]]; then
+            check_deadline=$(/src/interval.sh deadline "${SLEEP_TIME:-1h}") || return 1
+        fi
         check_duration=$((check_budget / target_count))
         if (( check_duration == 0 )); then
             echo "SLEEP_TIME must allow at least one second per repository."
@@ -162,7 +122,11 @@ main() {
     # Clear the failure only after publishing a complete, successful timestamp.
     date -u '+%Y-%m-%dT%H:%M:%SZ' > /health/backup_completion_time.log.$$ &&
         mv -fT /health/backup_completion_time.log.$$ /health/backup_completion_time.log &&
-        rm -f /health/backup_failed
+        rm -f /health/backup_failed || return 1
+
+    # A partial check can finish early. Keep the configured interval between
+    # backup rounds, counting checks and lock waits toward that interval.
+    /src/interval.sh wait "$check_deadline"
 }
 
 main
