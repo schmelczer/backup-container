@@ -78,6 +78,8 @@ Thus, the following sets of environment variables are valid for multi-target bac
 
 Multiple containers can back up different sources to the same repository, using distinct, non-overlapping `ARCHIVE_PREFIX` values and separate cache and snapshot directories. Borg 1.4 serializes writes with repository locks. Each Borg command waits indefinitely for a repository or cache lock, with no maximum wait setting. Because Borg 1.4's CLI requires a finite wait per attempt, the wrapper retries lock timeouts every 60 seconds until the lock becomes available. Other failures stop that target and are reflected in container health.
 
+Each service must have its own persistent cache volume, used only by that container. Stop the previous container and any manual Borg commands using its cache before starting a replacement. Startup sets a stable `BORG_HOST_ID` from `ARCHIVE_PREFIX`, unless explicitly configured, and removes leftover client-cache locks. Cached data, transaction files and repository locks are preserved. An explicit `BORG_HOST_ID` must be unique per service.
+
 ### Checks between backups
 
 `SLEEP_TIME` (default `1h`) is the minimum interval from the end of a backup round to the start of the next one. Repository checks share this time budget equally. If checks finish early, the wrapper sleeps for the remaining interval; checks and lock waits that exceed the budget add no further sleep. Durations may use `s`, `m`, `h`, or `d`, including fractions such as `1.5h`. The duration must be between 1 and 2147483647 seconds and allow at least one whole second per repository. The image includes timezone data, so `TZ` controls archive timestamps and Borg's retention-day boundaries.
@@ -108,6 +110,7 @@ A failed repository check also creates `/health/check_failed`. While it exists, 
   - [backup.sh](src/backup.sh): Creates a new BorgBackup repository if none exists, takes a snapshot of the BTRFS volume, performs the backup, and prunes old backups.
   - [backup-wrapper.sh](src/backup-wrapper.sh): Backs up all configured targets, then performs time-limited repository checks.
   - [borg-common.sh](src/borg-common.sh): Shares Borg SSH settings and indefinite lock waiting between backups and checks.
+  - [startup.sh](src/startup.sh): Sets a stable Borg identity and clears orphaned locks in the container's dedicated cache before starting the scheduler.
   - [snapshot.sh](src/snapshot.sh): Reports omitted subvolumes, creates the source snapshot, and deletes it after backup.
   - [interval.sh](src/interval.sh): Validates durations and waits for the unused check interval using system uptime, with 10 ms resolution.
   - [schedule.sh](src/schedule.sh): Manages and logs the operation of backup-wrapper.sh and runs it in a continuous loop.
@@ -123,13 +126,12 @@ A failed repository check also creates `/health/check_failed`. While it exists, 
 
 ## Development
 
-Run the healthcheck tests in a disposable container (backups are mocked):
+Run the cache recovery tests in a disposable container with Borg 1.4:
 
 ```sh
-docker build -t backup-healthcheck-tests .
-tar -c tests | docker run --rm -i --network none --entrypoint /bin/bash \
-  -e BACKUP_HEALTHCHECK_TEST=1 backup-healthcheck-tests \
-  -c 'tar -x -C / && bash /tests/healthcheck.sh'
+docker build -t backup-tests .
+tar -c tests | docker run --rm -i --network none --hostname localhost --entrypoint /bin/bash \
+  backup-tests -c 'tar -x -C / && bash /tests/startup.sh'
 shellcheck src/*.sh tests/*.sh
 ```
 

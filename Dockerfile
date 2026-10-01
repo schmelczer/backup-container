@@ -19,4 +19,5 @@ COPY config/exclude.conf /exclude.conf
 ENV MAX_BACKUP_AGE_SECONDS=86400
 HEALTHCHECK --interval=10s --timeout=10s CMD /src/healthcheck.sh
 
-ENTRYPOINT ["sh", "-c", "/src/schedule.sh"]
+ENTRYPOINT ["/src/startup.sh"]
+CMD ["/src/schedule.sh"]
