@@ -74,13 +74,17 @@ main() {
 
     # Finish every backup before spending the former sleep interval checking.
     for operation in backup check; do
-        if [[ $operation == check ]]; then
-            check_deadline=$(/src/interval.sh deadline "${SLEEP_TIME:-1h}") || return 1
-        fi
         check_duration=$((check_budget / target_count))
         if (( check_duration == 0 )); then
             echo "SLEEP_TIME must allow at least one second per repository."
             return 1
+        fi
+        if [[ $operation == check ]]; then
+            check_deadline=$(/src/interval.sh deadline "${SLEEP_TIME:-1h}") || return 1
+            # Borg can sleep for up to 60 seconds between lock attempts. Give
+            # every waiter a chance to acquire the released locks before checks.
+            echo "Waiting 60 seconds for queued backups before repository checks"
+            sleep 60 || return 1
         fi
         if [ -n "$BORG_REPO" ]; then
             execute_script || any_failed=true
@@ -125,7 +129,7 @@ main() {
         rm -f /health/backup_failed || return 1
 
     # A partial check can finish early. Keep the configured interval between
-    # backup rounds, counting checks and lock waits toward that interval.
+    # backup rounds, counting the handoff pause, checks and lock waits toward it.
     /src/interval.sh wait "$check_deadline"
 }
 
