@@ -62,4 +62,4 @@ borg_wait prune --list --stats \
     --keep-monthly="$KEEP_MONTHLY" \
     --keep-yearly="$KEEP_YEARLY"
 
-borg_wait compact --threshold=5 --cleanup-commits --verbose --progress
+borg_wait compact --threshold=5 --cleanup-commits --verbose
