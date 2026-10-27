@@ -25,7 +25,7 @@ Over the past 2 years, this backup setup has enabled me to successfully restore 
 
 Set the required `ARCHIVE_PREFIX` environment variable to a non-empty prefix shared by all backup targets. Include any separator in the value: `ARCHIVE_PREFIX=my-host-` creates archives named `my-host-{now:%Y-%m-%dT%H:%M:%S}`. The prefix is literal: glob characters and braces are escaped before passing it to Borg. Retention rules only apply to names beginning with that literal prefix. To continue pruning existing archives, set the prefix to their previous hostname followed by `-`.
 
-To adhere to the [3-2-1 backup rule](https://en.wikipedia.org/wiki/Backup) without disk-level redundancy, you can configure backups to multiple destinations. For example, backups can be sent to [rsync.net](rsync.net) and a local HDD.
+To adhere to the [3-2-1 backup rule](https://en.wikipedia.org/wiki/Backup) without disk-level redundancy, you can configure backups to multiple destinations. For example, backups can be sent to [rsync.net](https://www.rsync.net/products/borg.html) and a local HDD.
 
 The [`docker-compose.yml`](docker-compose.yml) file demonstrates how to set up multiple backup targets using environment variables such as `BORG_REPO_0`, `BORG_REPO_1`, `BORG_PASSPHRASE_0`, `BORG_PASSPHRASE_1`, and so forth. The backup script sequentially handles each repository defined by the environment variables, ensuring your source volume is backed up across all specified targets.
 
@@ -94,7 +94,7 @@ Mount a Btrfs subvolume at `/btrfs-root`, and a writable directory on the same B
 
 Mounted contents, including non-Btrfs mounts and bind mounts, are outside snapshot coverage: the snapshot retains the underlying source directory, without the mounted contents. To include that data, back up the subvolume or filesystem containing it. Failures to inspect the source or create its snapshot still fail the backup. Cleanup deletes the temporary snapshot.
 
-Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the snapshot. It must resolve inside that snapshot; paths that escape through `..` or symlinks fail the backup. The default exclusions match `.env`, `.dev.env`, `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. These settings apply to Borg after snapshot creation. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
+Set `BACKUP_RELATIVE_PATH=/path/within/source` to select a directory within the snapshot. It must resolve inside that snapshot; paths that escape through `..` or symlinks fail the backup. The default exclusion file contains patterns for `node_modules`, `.venv`, and `__pycache__` at both the backup root and deeper levels. These exclusions apply to Borg after snapshot creation. Edit [config/exclude.conf](config/exclude.conf) and rebuild the image to change these exclusions.
 
 ### Healthcheck
 
