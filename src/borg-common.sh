@@ -47,7 +47,8 @@ borg_literal_prefix() {
 }
 
 # Never break another client's repository/cache lock. Borg 1.4 only accepts
-# finite waits, so retry lock timeouts forever; other errors must propagate.
+# finite waits, so retry lock timeouts forever. Connection failures also retry
+# indefinitely without recording a failed check; health expires independently.
 borg_wait() {
     local status
     while true; do
@@ -56,9 +57,15 @@ borg_wait() {
         else
             status=$?
         fi
-        if (( status != 73 )); then
-            return "$status"
-        fi
-        echo "Repository or cache is locked; continuing to wait..." >&2
+        case $status in
+            73)
+                echo "Repository or cache is locked; continuing to wait..." >&2
+                ;;
+            80|81|87)
+                echo "Remote connection failed (Borg exit status $status); retrying in 60 seconds..." >&2
+                sleep 60 || return $?
+                ;;
+            *) return "$status" ;;
+        esac
     done
 }
