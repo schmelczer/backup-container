@@ -21,9 +21,10 @@ jobs:
         uses: https://git.schmelczer.dev/andras/ci-actions/docker-publish@c80f2f0701d7618f1f0b2bb52ebd332ea34b6e28
         with:
           context: .
-          push: ${{ !(github.actor == 'renovate-bot' || github.event.pull_request.user.login == 'renovate-bot' || startsWith(github.ref, 'refs/heads/renovate/') ||
-            startsWith(github.head_ref, 'renovate/')) && (github.event_name != 'pull_request') }}
-          token: ${{ !(github.actor == 'renovate-bot' || github.event.pull_request.user.login == 'renovate-bot' || startsWith(github.ref, 'refs/heads/renovate/')
-            || startsWith(github.head_ref, 'renovate/')) && (secrets.FORGEJO_PACKAGE_TOKEN) || '' }}
+          push: ${{ !github.event.pull_request && (!(github.actor == 'renovate-bot' || github.event.pull_request.user.login == 'renovate-bot' || startsWith(github.ref,
+            'refs/heads/renovate/') || startsWith(github.head_ref, 'renovate/')) && (github.event_name != 'pull_request')) }}
+          token: ${{ !github.event.pull_request && (!(github.actor == 'renovate-bot' || github.event.pull_request.user.login == 'renovate-bot' || startsWith(github.ref,
+            'refs/heads/renovate/') || startsWith(github.head_ref, 'renovate/')) && (github.event_name != 'pull_request')) && secrets.FORGEJO_PACKAGE_TOKEN || ''
+            }}
     if: ${{ contains(fromJSON('["andras","ruby336688","renovate-bot"]'), github.actor) && (!github.event.pull_request || contains(fromJSON('["andras","ruby336688","renovate-bot"]'),
       github.event.pull_request.user.login)) }}
