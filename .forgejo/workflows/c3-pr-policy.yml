@@ -23,7 +23,7 @@ jobs:
       run: "set -eu\ntest ! -S /var/run/docker.sock\ntest ! -e /pages\nawk '$1 ==\
         \ 0 { if ($2 == 0) exit 1; found=1 } END { if (!found) exit 1 }' /proc/self/uid_map\n\
         if [ \"$CI_UNTRUSTED\" = true ]; then\n  test -z \"$REGISTRY_TOKEN\"\n  echo\
-        \ BOT_SECRET_FREE_ROOTLESS_OK\nelse\n  test -n \"$REGISTRY_TOKEN\"\n  echo\
+        \ BOT_SECRET_FREE_ROOTLESS_OK\nelse\n  test \"$CI_UNTRUSTED\" = false\n  echo\
         \ HUMAN_FULL_CONTAINER_OK\nfi\nmkdir context\nprintf 'FROM docker.io/library/alpine:3.22\\\
         nRUN echo verified >/proof\\n' >context/Dockerfile\n"
     - name: Build without publishing or registry credentials
