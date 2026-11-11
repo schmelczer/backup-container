@@ -2,14 +2,10 @@ name: ShellCheck
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
   shellcheck:
-    runs-on: ${{ (github.actor == 'renovate-bot' || github.event.pull_request.user.login == 'renovate-bot' || startsWith(github.ref, 'refs/heads/renovate/') || startsWith(github.head_ref,
-      'renovate/')) && 'renovate' || 'docker' }}
+    runs-on: docker
     steps:
       - uses: https://code.forgejo.org/actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -20,5 +16,3 @@ jobs:
 
       - name: Run ShellCheck
         run: find ./src -name '*.sh' -exec shellcheck {} +
-    if: ${{ contains(fromJSON('["andras","ruby336688","renovate-bot"]'), github.actor) && (!github.event.pull_request || contains(fromJSON('["andras","ruby336688","renovate-bot"]'),
-      github.event.pull_request.user.login)) }}
